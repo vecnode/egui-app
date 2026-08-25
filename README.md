@@ -154,4 +154,4 @@ a vulnerability.
 
 ## License
 
-Licensed under [MIT](LICENSE), © 2026 user.
+Licensed under [MIT](LICENSE), © 2026 vecnode.
