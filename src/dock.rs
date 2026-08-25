@@ -7,11 +7,22 @@
 //!
 //! The in-app log viewer ([`egui_logger`]) is also a dock pane here, which
 //! makes it draggable and dockable exactly like every other tab.
+//!
+//! Each pane shows a small Phosphor "move" handle in its top-right corner
+//! (6px inset) that starts a tile drag. The whole layout can be locked from
+//! the top bar: while locked, dragging and resizing are disabled (see
+//! [`DockBehavior::is_tile_draggable`] and
+//! [`DockBehavior::is_container_resizable`]).
 
 use eframe::egui;
 use egui_file_dialog::FileDialog;
 use egui_phosphor::regular;
 use egui_plot::{Line, Plot, PlotPoints};
+
+/// Inset of the pane move handle from the top-right corner, in points.
+const MOVE_HANDLE_MARGIN: f32 = 6.0;
+/// Edge length of the square move handle, in points.
+const MOVE_HANDLE_SIZE: f32 = 22.0;
 
 /// The kind of content a [`DockPane`] hosts.
 #[derive(Clone, Copy, PartialEq, Eq)]
@@ -27,10 +38,14 @@ pub struct DockPane {
     kind: DockPaneKind,
 }
 
-/// Bridges the dock tree with the rest of the application state, currently
-/// the shared [`FileDialog`] that the icon demo pane opens.
+/// Bridges the dock tree with the rest of the application state: the shared
+/// [`FileDialog`] that the icon demo pane opens, and the layout lock flag
+/// toggled from the top bar.
 pub struct DockBehavior<'a> {
     pub file_dialog: &'a mut FileDialog,
+    /// When `true` the layout is locked: panes cannot be dragged, tabs
+    /// cannot be re-docked, and splitters cannot be resized.
+    pub locked: bool,
 }
 
 impl egui_tiles::Behavior<DockPane> for DockBehavior<'_> {
@@ -52,16 +67,44 @@ impl egui_tiles::Behavior<DockPane> for DockBehavior<'_> {
             DockPaneKind::Log => log_pane_ui(ui),
         });
 
-        // The bottom button makes every pane draggable so it can be torn out
-        // of its tab and docked elsewhere.
-        if ui
-            .add(egui::Button::new("Drag to dock").sense(egui::Sense::drag()))
-            .drag_started()
-        {
-            egui_tiles::UiResponse::DragStarted
-        } else {
-            egui_tiles::UiResponse::None
+        if !self.locked {
+            // Floating Phosphor "move" handle in the top-right corner, 6px
+            // from the top and right edges of the pane. Dragging it starts
+            // the egui_tiles tile drag.
+            let top_right = ui.max_rect().right_top();
+            let rect = egui::Rect::from_min_size(
+                top_right + egui::vec2(-MOVE_HANDLE_SIZE - MOVE_HANDLE_MARGIN, MOVE_HANDLE_MARGIN),
+                egui::Vec2::splat(MOVE_HANDLE_SIZE),
+            );
+            let response = ui.put(
+                rect,
+                egui::Button::new(egui::RichText::new(regular::ARROWS_OUT_CARDINAL).size(16.0))
+                    .sense(egui::Sense::drag()),
+            );
+            if response.drag_started() {
+                return egui_tiles::UiResponse::DragStarted;
+            }
         }
+
+        egui_tiles::UiResponse::None
+    }
+
+    /// Locked layouts cannot be rearranged by dragging panes or tabs.
+    fn is_tile_draggable(
+        &self,
+        _tiles: &egui_tiles::Tiles<DockPane>,
+        _tile_id: egui_tiles::TileId,
+    ) -> bool {
+        !self.locked
+    }
+
+    /// Locked layouts cannot be resized by dragging the splitters.
+    fn is_container_resizable(
+        &self,
+        _tiles: &egui_tiles::Tiles<DockPane>,
+        _tile_id: egui_tiles::TileId,
+    ) -> bool {
+        !self.locked
     }
 }
 
@@ -146,12 +189,37 @@ pub fn create_dock_tree() -> egui_tiles::Tree<DockPane> {
 
 #[cfg(test)]
 mod tests {
-    use super::create_dock_tree;
+    use super::{DockBehavior, DockPane, DockPaneKind, create_dock_tree};
+    use egui_file_dialog::FileDialog;
+    use egui_tiles::Behavior;
 
     #[test]
     fn dock_tree_has_multiple_tiles_and_root() {
         let tree = create_dock_tree();
         assert!(tree.root.is_some(), "dock tree should have a root tile");
         assert!(tree.tiles.len() > 1, "dock should contain multiple tiles");
+    }
+
+    #[test]
+    fn locked_layout_disables_dragging_and_resizing() {
+        let mut file_dialog = FileDialog::new();
+        let mut tiles = egui_tiles::Tiles::default();
+        let pane_id = tiles.insert_pane(DockPane {
+            kind: DockPaneKind::Demo(0),
+        });
+
+        let unlocked = DockBehavior {
+            file_dialog: &mut file_dialog,
+            locked: false,
+        };
+        assert!(unlocked.is_tile_draggable(&tiles, pane_id));
+        assert!(unlocked.is_container_resizable(&tiles, pane_id));
+
+        let locked = DockBehavior {
+            file_dialog: &mut file_dialog,
+            locked: true,
+        };
+        assert!(!locked.is_tile_draggable(&tiles, pane_id));
+        assert!(!locked.is_container_resizable(&tiles, pane_id));
     }
 }
