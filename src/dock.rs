@@ -1,9 +1,9 @@
 //! Dockable workspace built with [`egui_tiles`].
 //!
-//! The template demonstrates the three tile containers offered by
-//! `egui_tiles`: horizontal splits, grids, and tabs. Panes can be dragged
-//! between tabs and splitters can be resized at runtime, so this module is a
-//! good starting point for building a full editor-style layout.
+//! The template demonstrates the `egui_tiles` containers: a horizontal split
+//! and a tab strip. Panes can be dragged between tabs and splitters can be
+//! resized at runtime, so this module is a good starting point for building a
+//! full editor-style layout.
 //!
 //! The in-app log viewer ([`egui_logger`]) is also a dock pane here, which
 //! makes it draggable and dockable exactly like every other tab.
@@ -154,8 +154,8 @@ fn plot_pane(ui: &mut egui::Ui) {
         });
 }
 
-/// Builds the initial dock tree: demo tabs (horizontal split, grid, single
-/// pane) plus a dockable "Log" tab, all under a shared root tab tile.
+/// Builds the initial dock tree: a horizontal split with the two demo panes
+/// plus a dockable "Log" tab, all under a shared root tab tile.
 pub fn create_dock_tree() -> egui_tiles::Tree<DockPane> {
     let mut next_view_nr = 0;
     let mut gen_demo = || {
@@ -170,14 +170,9 @@ pub fn create_dock_tree() -> egui_tiles::Tree<DockPane> {
 
     let mut tabs = vec![];
     tabs.push({
-        let children = (0..3).map(|_| tiles.insert_pane(gen_demo())).collect();
+        let children = (0..2).map(|_| tiles.insert_pane(gen_demo())).collect();
         tiles.insert_horizontal_tile(children)
     });
-    tabs.push({
-        let cells = (0..4).map(|_| tiles.insert_pane(gen_demo())).collect();
-        tiles.insert_grid_tile(cells)
-    });
-    tabs.push(tiles.insert_pane(gen_demo()));
     tabs.push(tiles.insert_pane(DockPane {
         kind: DockPaneKind::Log,
     }));

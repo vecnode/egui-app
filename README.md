@@ -6,8 +6,9 @@ A cross-platform desktop application template built with [egui](https://github.c
 
 
 - Immediate-mode GUI + windowing - [`eframe`](https://crates.io/crates/eframe) / [`egui`](https://crates.io/crates/egui)
-- Dockable, resizable panes - [`egui_tiles`](https://crates.io/crates/egui_tiles) (Phosphor move handle in each pane; splitters, tabs, grids)
+- Dockable, resizable panes - [`egui_tiles`](https://crates.io/crates/egui_tiles) (Phosphor move handle in each pane; splitters, tabs)
 - Layout lock — top-bar lock/unlock button (right side) freezes pane dragging and resizing
+- Automatic OS theme — light/dark follows the system setting (safe Rust via egui/winit); top-bar toggle cycles system → light → dark
 - Line / scatter plots - [`egui_plot`](https://crates.io/crates/egui_plot)
 - Native file picker - [`egui-file-dialog`](https://crates.io/crates/egui-file-dialog) 
 - Icon glyph font - [`egui-phosphor`](https://crates.io/crates/egui-phosphor)
@@ -17,8 +18,10 @@ A cross-platform desktop application template built with [egui](https://github.c
 
 Platforms:
 
-- **Windows 11 dark theme** — the app forces egui's dark theme on Windows 11 so it
-  matches the OS default (see [`src/platform.rs`](src/platform.rs)).
+- **Theme** — the app follows the OS light/dark setting automatically, live
+  (egui [`ThemePreference::System`](https://docs.rs/egui/latest/egui/enum.ThemePreference.html);
+  egui/winit read it through the native APIs on each platform — no shelling
+  out). Override anytime from the top bar.
 - **Windows** — `build.rs` embeds `assets/icon.ico` into the `.exe`.
 - **Linux** — window/taskbar icon via the bundled PNG; desktop-entry template in
   `assets/linux/`.
@@ -65,6 +68,18 @@ build_app.bat --build-only   # build without launching
 ./build_app.sh --bundle         # macOS only: also create a .app bundle with the icon
 ```
 
+## Repository
+
+- `src/main.rs` — entry point: logging, fonts, icon, OS-theme preference, `eframe::run_native`.
+- `src/app.rs` — `TemplateApp`: application state, top bar (theme + lock), per-frame UI.
+- `src/dock.rs` — the dockable workspace (demo panes + the Log pane); add your own panes here.
+- `src/icon.rs` — decodes the embedded `assets/icon.png` for the window icon.
+- `src/logging.rs` — logger installation.
+- `build.rs` — embeds `assets/icon.ico` into the Windows executable.
+
+See [ARCHITECTURE.md](ARCHITECTURE.md) for a full tour of the codebase.
+
+
 ## Assets & icons
 
 `assets/` holds the application icon and platform packaging files:
@@ -81,18 +96,6 @@ build_app.bat --build-only   # build without launching
 
 The icon is deliberately a solid black square (one color, no transparency) —
 swap the files and re-run the generator if you want a different look.
-
-## Repository
-
-- `src/main.rs` — entry point: logging, fonts, icon, theming, `eframe::run_native`.
-- `src/app.rs` — `TemplateApp`: application state and the per-frame UI.
-- `src/dock.rs` — the dockable workspace (demo panes + the Log pane); add your own panes here.
-- `src/icon.rs` — decodes the embedded `assets/icon.png` for the window icon.
-- `src/platform.rs` — OS-specific detection (Windows 11 dark theme).
-- `src/logging.rs` — logger installation.
-- `build.rs` — embeds `assets/icon.ico` into the Windows executable.
-
-See [ARCHITECTURE.md](ARCHITECTURE.md) for a full tour of the codebase.
 
 ## Development workflow
 

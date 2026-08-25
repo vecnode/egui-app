@@ -27,11 +27,10 @@ cleverness.
 
 ```
 src/
-  main.rs      # entry point: logger, fonts, icon, theme, eframe::run_native
-  app.rs       # TemplateApp state + eframe::App impl (per-frame UI)
+  main.rs      # entry point: logger, fonts, icon, OS-theme pref, eframe::run_native
+  app.rs       # TemplateApp state + eframe::App impl (top bar, per-frame UI)
   dock.rs      # egui_tiles dockable workspace: demo panes + Log pane
   icon.rs      # bundled app icon (assets/icon.png) -> window/taskbar icon
-  platform.rs  # OS detection (Windows 11 dark theme)
   logging.rs   # egui_logger installation
 assets/        # icons (png/ico/icns), app.rc, Info.plist, .desktop, generator
 build.rs       # embeds assets/icon.ico into the Windows .exe
@@ -71,9 +70,10 @@ build.rs       # embeds assets/icon.ico into the Windows .exe
 - **Cargo.lock is committed** — this is an application, so lock the
   dependency graph. Regenerate it deliberately (`cargo update`) and review the
   diff.
-- **Platform code**: `platform.rs` uses `#[cfg(target_os = "windows")]`
-  heavily. When touching it, make sure non-Windows builds still compile — the
-  `#[cfg(not(target_os = "windows"))]` fallback must always exist.
+- **Theme handling**: theming goes through `egui::ThemePreference` only —
+  there is deliberately no platform-specific theme code (egui/winit read the
+  OS setting). Do not reintroduce process spawning or `#[cfg]` theme hacks;
+  keep `build.rs` as the only Windows-only build step.
 - **build.rs / icons**: `build.rs` embeds `assets/icon.ico` only for Windows
   targets (via `CARGO_CFG_TARGET_OS`) — never add unconditional resource
   compilation. Icon changes must keep the PNG/ICO/ICNS in sync; regenerate

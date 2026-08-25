@@ -21,13 +21,12 @@ The stack:
 │  main.rs → app.rs (TemplateApp) → dock.rs (egui_tiles)       │
 │              │            │                                   │
 │              ├─ icon.rs (bundled app icon)                   │
-│              ├─ logging.rs (egui_logger + log)                │
-│              └─ platform.rs (Windows 11 dark theme)           │
+│              └─ logging.rs (egui_logger + log)                │
 │  build.rs — embeds assets/icon.ico into the .exe (Windows)   │
 ├──────────────────────────────────────────────────────────────┤
 │ eframe  — windowing + event loop + renderer wiring           │
-│   ├─ egui — immediate-mode UI toolkit                        │
-│   ├─ winit — OS window/input abstraction                     │
+│   ├─ egui — immediate-mode UI toolkit (theming included)     │
+│   ├─ winit — OS window/input abstraction (OS theme events)   │
 │   └─ wgpu — GPU renderer (Vulkan/Metal/DX12)                 │
 └──────────────────────────────────────────────────────────────┘
 ```
@@ -49,8 +48,11 @@ README feature table.
       The creator closure runs once, before the first frame:
       1. `install_icon_font()` adds the egui-phosphor icon glyphs to the
          font atlas.
-      2. `platform::force_dark_theme_on_windows()` decides the theme; the
-         dark theme is forced on Windows 11.
+      2. `ctx.set_theme(ThemePreference::System)` makes the theme follow the
+         operating system's light/dark setting. egui/winit read the OS
+         setting in safe Rust (native APIs on each platform) and push
+         `ThemeChanged` events, so the theme also updates live when the OS
+         theme changes. The user can override it from the top bar.
       3. `TemplateApp::new()` constructs the dock tree and file dialog.
 2. **Event loop** (owned by eframe; the app never sees it directly). Each
    frame eframe calls the two `eframe::App` hooks on `TemplateApp`:
@@ -66,8 +68,8 @@ README feature table.
 ### `src/main.rs` — entry point
 
 Thin by design. Owns `APP_TITLE`, the `NativeOptions` (viewport + app icon),
-and the one-time startup wiring (logger, fonts, theme). No UI logic lives
-here.
+and the one-time startup wiring (logger, fonts, `ThemePreference::System`).
+No UI logic lives here.
 
 ### `src/app.rs` — application state
 
@@ -79,13 +81,15 @@ implementation:
 | `tree: egui_tiles::Tree<DockPane>` | The dockable layout shown in the central panel |
 | `file_dialog: FileDialog` | Shared native file picker, opened from dock pane 0 |
 | `locked: bool` | Layout lock state, toggled from the top bar |
+| `theme_pref: ThemePreference` | System/light/dark preference, toggled from the top bar |
 | `logged_startup: bool` | One-shot flag for the startup log message |
 
 `ui()` composes the frame: the top bar (`top_bar()`, app label on the left,
-lock/unlock toggle on the right) is drawn first, then the `CentralPanel`
-hosts the dock tree (via `DockBehavior`) and the file dialog is advanced and
-polled for results (`take_picked()`). The log viewer is not a separate
-window — it lives in its own dock pane (see below).
+theme toggle and lock/unlock toggle on the right) is drawn first, then the
+`CentralPanel` — framed by a 1px border stroke that adapts to the current
+theme — hosts the dock tree (via `DockBehavior`), and the file dialog is
+advanced and polled for results (`take_picked()`). The log viewer is not a
+separate window — it lives in its own dock pane (see below).
 
 ### `src/dock.rs` — dockable workspace (egui_tiles)
 
@@ -101,9 +105,7 @@ window — it lives in its own dock pane (see below).
 
   ```
   root (tab tile)
-  ├── tab "horizontal" → 3 demo panes in a horizontal split
-  ├── tab "grid"       → 4 demo panes in a grid
-  ├── tab (single)     → 1 demo pane
+  ├── tab "horizontal" → 2 demo panes in a horizontal split
   └── tab "Log"        → the in-app log viewer (egui_logger)
   ```
 
@@ -125,25 +127,20 @@ drives the window title bar (small) and the taskbar/dock (large) on every
 platform, with no runtime file I/O. On failure it returns `None` and the app
 runs with the default icon.
 
-### `src/platform.rs` — OS-specific behavior
-
-`force_dark_theme_on_windows()` is the only public entry point. On
-non-Windows targets it is a compile-time `false` (the `#[cfg(not(target_os
-= "windows"))]` arm). On Windows it reads the build number from the registry
-with `reg.exe` (`HKLM\SOFTWARE\Microsoft\Windows NT\CurrentVersion`
-→ `CurrentBuild`); build ≥ 22000 means Windows 11, and the dark theme is
-forced. An unreadable build **fails closed to dark**, matching the Windows 11
-default.
-
-This module is the template's pattern for platform-specific code: isolate it
-behind a small pure-ish function with `#[cfg]` arms so the rest of the app
-stays platform-agnostic.
-
 ### `src/logging.rs` — logging
 
 Wraps `egui_logger::builder()`. The log records are captured into an
 in-memory buffer rendered by the dockable "Log" pane; nothing is written to
 disk or stdout by default, which keeps the template free of side effects.
+
+### Theming — no custom platform code
+
+Theme handling needs no platform-specific module: egui's
+`ThemePreference::System` (the default) makes egui/winit read the OS
+light/dark setting through the native APIs on each platform and keep it in
+sync live. The top bar cycles the preference (`System → Light → Dark →
+System`) by calling `Context::set_theme`. There is deliberately no
+`reg.exe`-spawning or `#[cfg]`-laden platform code anymore.
 
 ### `build.rs` — Windows resource embedding
 
@@ -172,9 +169,10 @@ input (winit) → egui (immediate mode) → TemplateApp::ui()
    │                                      │
    │          ┌───────────────────────────┘
    │          ▼
-   │   Panel::top "top_bar"               ← label + lock/unlock toggle
-   │     └─ toggles TemplateApp::locked    (drives DockBehavior::locked)
-   │   CentralPanel
+   │   Panel::top "top_bar"               ← label + theme toggle +
+   │     └─ toggles TemplateApp::theme_pref (→ ctx.set_theme) and
+   │        toggles TemplateApp::locked    (drives DockBehavior::locked)
+   │   CentralPanel (1px border stroke)
    │     └─ tree.ui(&mut DockBehavior, ui) ← dock panes render, incl.
    │     │                                     the Log pane
    │     │                                     (egui_logger::logger_ui)
@@ -193,9 +191,8 @@ read/written during the frame; there are no event handlers to wire up.
 
 - Single-threaded UI: all rendering and logic runs on the main thread inside
   the eframe event loop. The `FileDialog` is UI-only (no background threads).
-- Platform detection spawns `reg.exe` **once per call**; it is currently
-  called once at startup. If it is ever called per-frame, cache the result —
-  spawning a process every frame is expensive.
+- The OS theme is delivered by winit as `ThemeChanged` events; no process is
+  spawned and no registry is queried directly.
 - Rendering uses wgpu, so the app is portable across Vulkan (Linux/Windows),
   Metal (macOS), and DX12 (Windows). eframe also falls back to OpenGL where
   needed.
@@ -203,10 +200,11 @@ read/written during the frame; there are no event handlers to wire up.
 ## 6. Testing strategy
 
 - Unit tests live in `#[cfg(test)] mod tests` inside each module
-  (`dock.rs`, `platform.rs`).
+  (`dock.rs`).
 - Testable seams: `create_dock_tree()` is a pure constructor — the dock test
-  asserts a root tile exists and multiple tiles are present. Platform code
-  exposes a total function that never panics.
+  asserts a root tile exists and multiple tiles are present. The layout lock
+  is tested through the `Behavior` hooks (`is_tile_draggable` /
+  `is_container_resizable`).
 - UI rendering is intentionally **not** unit-tested (immediate-mode code is
   exercised by running the app); keep helpers pure so the important logic is
   covered.
@@ -218,8 +216,9 @@ read/written during the frame; there are no event handlers to wire up.
   small helper functions like `icons_pane`/`plot_pane`.
 - **New app-wide state**: add fields to `TemplateApp`; read/write them from
   `ui()`.
-- **New platform behavior**: add `#[cfg(...)]` functions to `platform.rs`
-  behind a small public API.
+- **Theme behavior**: everything goes through `egui::ThemePreference` — no
+  custom platform code. Add more preferences (e.g. a persistent setting) by
+  extending the `theme_pref` cycle in `top_bar()`.
 - **New logging sink**: extend `logging.rs` (e.g. `env_logger` for stdout)
   without touching the app code.
 - **New icon**: replace the PNGs/ICO/ICNS in `assets/` (or edit

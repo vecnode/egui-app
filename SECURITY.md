@@ -50,11 +50,10 @@ but every fork changes that — re-read this section when you add features.
   attacker-controlled strings with `log` macros that interpret `{}`
   placeholders as data, not code (the `log` crate is safe by construction;
   the risk is in downstream consumers).
-- **Registry query via `reg.exe`.** On Windows, `platform.rs` shells out to
-  `reg.exe` to read the build number. The command line is fully static (no
-  user input is interpolated), and the output is only parsed for a build
-  number. Keep it that way: never interpolate user-controlled strings into
-  this or any other `Command` invocation.
+- **No process spawning.** Nothing in the app shells out to external
+  programs. The OS theme is read by egui/winit through the native APIs (no
+  `reg.exe`, no `defaults`, no `gsettings`). Keep it that way: never
+  interpolate user-controlled strings into any `Command` invocation.
 - **Secrets.** None are stored or expected. If a fork adds credentials, store
   them via the OS keychain or a dedicated secrets API — never in source, logs,
   or the egui log buffer (the in-app "Log" window can capture them).
@@ -79,7 +78,7 @@ but every fork changes that — re-read this section when you add features.
 | Asset | Trust | Notes |
 | --- | --- | --- |
 | User files picked in the dialog | Read-only, not processed | No reads happen yet |
-| OS build number (`reg.exe`) | Read-only system query | Static command line |
+| OS theme setting | Read-only, via egui/winit | Native APIs; no process spawned |
 | Log records (in-memory) | Internal | Buffered in-process only; never persisted |
 | Source code / build artifacts | Developer-controlled | `target/` is gitignored |
 
