@@ -23,20 +23,22 @@ pub struct TemplateApp {
     file_dialog: FileDialog,
     /// When `true` the dock layout is locked (no dragging or resizing).
     locked: bool,
-    /// Light/dark/system theme preference, toggled from the top bar.
+    /// Light/dark theme preference (never `System`), toggled from the top
+    /// bar; the initial value follows the OS theme at startup.
     theme_pref: egui::ThemePreference,
     /// Ensures the startup message is logged exactly once.
     logged_startup: bool,
 }
 
 impl TemplateApp {
-    /// Creates the application with a fresh dock layout and file dialog.
-    pub fn new() -> Self {
+    /// Creates the application with a fresh dock layout, file dialog, and the
+    /// initial theme preference (derived from the OS theme at startup).
+    pub fn new(theme_pref: egui::ThemePreference) -> Self {
         Self {
             tree: create_dock_tree(),
             file_dialog: FileDialog::new(),
             locked: false,
-            theme_pref: egui::ThemePreference::System,
+            theme_pref,
             logged_startup: false,
         }
     }
@@ -61,6 +63,10 @@ impl eframe::App for TemplateApp {
         egui::CentralPanel::default()
             .frame(
                 egui::Frame::new()
+                    // Theme-aware backdrop: panes (panel_fill) sit on the
+                    // stronger extreme_bg_color, so they never look flat
+                    // black and the whole app changes with the theme.
+                    .fill(ui.visuals().extreme_bg_color)
                     .inner_margin(4.0)
                     .stroke(egui::Stroke::new(
                         1.0,
@@ -109,19 +115,13 @@ impl TemplateApp {
                         log::info!("layout {}", if self.locked { "locked" } else { "unlocked" });
                     }
 
-                    // Just left of the lock: theme cycle system → light → dark.
+                    // Just left of the lock: light/dark theme toggle.
                     ui.add_space(4.0);
-                    let (theme_icon, theme_tip) = match self.theme_pref {
-                        egui::ThemePreference::System => (
-                            regular::MONITOR,
-                            "Theme: follow the system (click to change)",
-                        ),
-                        egui::ThemePreference::Light => {
-                            (regular::SUN, "Theme: light (click to change)")
-                        }
-                        egui::ThemePreference::Dark => {
-                            (regular::MOON, "Theme: dark (click to change)")
-                        }
+                    let (theme_icon, theme_tip) = if self.theme_pref == egui::ThemePreference::Light
+                    {
+                        (regular::SUN, "Theme: light — click for dark")
+                    } else {
+                        (regular::MOON, "Theme: dark — click for light")
                     };
                     if ui
                         .add(egui::Button::new(
@@ -130,13 +130,20 @@ impl TemplateApp {
                         .on_hover_text(theme_tip)
                         .clicked()
                     {
-                        self.theme_pref = match self.theme_pref {
-                            egui::ThemePreference::System => egui::ThemePreference::Light,
-                            egui::ThemePreference::Light => egui::ThemePreference::Dark,
-                            egui::ThemePreference::Dark => egui::ThemePreference::System,
+                        self.theme_pref = if self.theme_pref == egui::ThemePreference::Light {
+                            egui::ThemePreference::Dark
+                        } else {
+                            egui::ThemePreference::Light
                         };
                         ui.ctx().set_theme(self.theme_pref);
-                        log::info!("theme preference: {:?}", self.theme_pref);
+                        log::info!(
+                            "theme: {}",
+                            if self.theme_pref == egui::ThemePreference::Light {
+                                "light"
+                            } else {
+                                "dark"
+                            }
+                        );
                     }
                 });
             });

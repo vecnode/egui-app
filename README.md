@@ -8,7 +8,7 @@ A cross-platform desktop application template built with [egui](https://github.c
 - Immediate-mode GUI + windowing - [`eframe`](https://crates.io/crates/eframe) / [`egui`](https://crates.io/crates/egui)
 - Dockable, resizable panes - [`egui_tiles`](https://crates.io/crates/egui_tiles) (Phosphor move handle in each pane; splitters, tabs)
 - Layout lock — top-bar lock/unlock button (right side) freezes pane dragging and resizing
-- Automatic OS theme — light/dark follows the system setting (safe Rust via egui/winit); top-bar toggle cycles system → light → dark
+- Automatic OS theme — starts in the OS light/dark setting (safe Rust via egui/winit); top-bar toggle switches light/dark
 - Line / scatter plots - [`egui_plot`](https://crates.io/crates/egui_plot)
 - Native file picker - [`egui-file-dialog`](https://crates.io/crates/egui-file-dialog) 
 - Icon glyph font - [`egui-phosphor`](https://crates.io/crates/egui-phosphor)
@@ -18,10 +18,10 @@ A cross-platform desktop application template built with [egui](https://github.c
 
 Platforms:
 
-- **Theme** — the app follows the OS light/dark setting automatically, live
-  (egui [`ThemePreference::System`](https://docs.rs/egui/latest/egui/enum.ThemePreference.html);
-  egui/winit read it through the native APIs on each platform — no shelling
-  out). Override anytime from the top bar.
+- **Theme** — starts in the OS light/dark setting, read in safe Rust via
+  egui/winit (native APIs on each platform, no shelling out); the top-bar
+  toggle then switches light/dark. The whole app — panes included — follows
+  the theme.
 - **Windows** — `build.rs` embeds `assets/icon.ico` into the `.exe`.
 - **Linux** — window/taskbar icon via the bundled PNG; desktop-entry template in
   `assets/linux/`.
