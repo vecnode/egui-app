@@ -1,6 +1,9 @@
 # Rust / Cargo build output
 /target
 
+# Distribution output (distribute_app.bat / distribute_app.sh)
+/dist
+
 # Cargo.lock is COMMITTED for this application (reproducible builds).
 # Do not add it to .gitignore.
 

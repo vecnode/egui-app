@@ -10,6 +10,7 @@
 //! - [`dock`] — dockable workspace (including the Log pane) built on [`egui_tiles`]
 //! - [`icon`] — bundled application icon (window title bar + taskbar/dock)
 //! - [`logging`] — in-app logging via [`egui_logger`]
+//! - [`persist`] — dock layout persistence (save/restore across runs)
 
 #![warn(missing_docs)]
 
@@ -17,6 +18,7 @@ mod app;
 mod dock;
 mod icon;
 mod logging;
+mod persist;
 
 use eframe::egui;
 

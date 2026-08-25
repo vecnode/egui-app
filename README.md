@@ -9,6 +9,7 @@ A cross-platform desktop application template built with [egui](https://github.c
 - Dockable, resizable panes - [`egui_tiles`](https://crates.io/crates/egui_tiles) (Phosphor move handle in each pane; splitters, tabs)
 - Layout lock — top-bar lock/unlock button (right side) freezes pane dragging and resizing
 - Automatic OS theme — starts in the OS light/dark setting (safe Rust via egui/winit); top-bar toggle switches light/dark
+- Layout persistence — the panel layout is saved to a per-user config file and restored on the next launch ([`serde`](https://crates.io/crates/serde) + [`serde_json`](https://crates.io/crates/serde_json))
 - Line / scatter plots - [`egui_plot`](https://crates.io/crates/egui_plot)
 - Native file picker - [`egui-file-dialog`](https://crates.io/crates/egui-file-dialog) 
 - Icon glyph font - [`egui-phosphor`](https://crates.io/crates/egui-phosphor)
@@ -60,13 +61,48 @@ The repository ships convenience scripts that build **and** run the app:
 build_app.bat                # debug build + run
 build_app.bat --release      # release build + run
 build_app.bat --build-only   # build without launching
+distribute_app.bat           # package the release build (zip + SHA-256)
 
 # Linux / macOS
 ./build_app.sh
 ./build_app.sh --release
 ./build_app.sh --build-only
 ./build_app.sh --bundle         # macOS only: also create a .app bundle with the icon
+./distribute_app.sh             # package the release build (tar.gz / .app zip + SHA-256)
 ```
+
+## Layout persistence
+
+The dock layout (panes, splits and tabs) is saved automatically whenever you
+drag or resize a pane, and restored on the next launch. The file is JSON in
+the platform's per-user config directory, so it also works in distributed
+builds:
+
+- **Windows** — `%APPDATA%\vecnode\egui-app\config\layout.json`
+- **Linux** — `~/.config/vecnode/egui-app/layout.json`
+- **macOS** — `~/Library/Application Support/com.vecnode.egui-app/layout.json`
+
+A corrupt or missing file simply falls back to the default layout.
+
+## Distribution
+
+`distribute_app.bat` (Windows) and `distribute_app.sh` (Linux/macOS) build a
+release binary and package it into `dist/`:
+
+| Platform | Output |
+| --- | --- |
+| Windows | `dist/egui-app-<version>-windows-x86_64.zip` — portable exe (icon embedded), LICENSE, README |
+| Linux | `dist/egui-app-<version>-linux-<arch>.tar.gz` — binary + desktop file + icon |
+| macOS | `dist/egui-app-<version>-macos-<arch>.zip` — a proper `.app` bundle with the icon |
+
+Every archive gets a **SHA-256 checksum** file (`.sha256`) for download
+integrity. Security notes:
+
+- The Windows exe and macOS app are **unsigned** (no code-signing cert in the
+  repo), so SmartScreen/Gatekeeper may warn — sign them before broad
+  distribution (planned for CI later).
+- Nothing but the binary, LICENSE and README is bundled; no user data or
+  build artifacts leave the machine.
 
 ## Repository
 
@@ -75,6 +111,7 @@ build_app.bat --build-only   # build without launching
 - `src/dock.rs` — the dockable workspace (demo panes + the Log pane); add your own panes here.
 - `src/icon.rs` — decodes the embedded `assets/icon.png` for the window icon.
 - `src/logging.rs` — logger installation.
+- `src/persist.rs` — saves/restores the dock layout (per-user config dir).
 - `build.rs` — embeds `assets/icon.ico` into the Windows executable.
 
 See [ARCHITECTURE.md](ARCHITECTURE.md) for a full tour of the codebase.

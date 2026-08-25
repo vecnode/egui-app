@@ -25,7 +25,10 @@ const MOVE_HANDLE_MARGIN: f32 = 6.0;
 const MOVE_HANDLE_SIZE: f32 = 22.0;
 
 /// The kind of content a [`DockPane`] hosts.
-#[derive(Clone, Copy, PartialEq, Eq)]
+///
+/// Serialized together with the dock tree (see [`crate::persist`]), so the
+/// layout — including which pane is which — survives restarts.
+#[derive(Clone, Copy, PartialEq, Eq, serde::Deserialize, serde::Serialize)]
 pub enum DockPaneKind {
     /// One of the template demo panes (icons / plot / placeholder).
     Demo(usize),
@@ -34,18 +37,23 @@ pub enum DockPaneKind {
 }
 
 /// A single dock pane.
+#[derive(serde::Deserialize, serde::Serialize)]
 pub struct DockPane {
     kind: DockPaneKind,
 }
 
 /// Bridges the dock tree with the rest of the application state: the shared
-/// [`FileDialog`] that the icon demo pane opens, and the layout lock flag
-/// toggled from the top bar.
+/// [`FileDialog`] that the icon demo pane opens, the layout lock flag toggled
+/// from the top bar, and a dirty flag set whenever the layout changes (used
+/// to trigger layout persistence).
 pub struct DockBehavior<'a> {
     pub file_dialog: &'a mut FileDialog,
     /// When `true` the layout is locked: panes cannot be dragged, tabs
     /// cannot be re-docked, and splitters cannot be resized.
     pub locked: bool,
+    /// Set to `true` by [`egui_tiles::Behavior::on_edit`] when a drag or
+    /// resize changed the layout; the app saves the tree afterwards.
+    pub layout_dirty: &'a mut bool,
 }
 
 impl egui_tiles::Behavior<DockPane> for DockBehavior<'_> {
@@ -105,6 +113,19 @@ impl egui_tiles::Behavior<DockPane> for DockBehavior<'_> {
         _tile_id: egui_tiles::TileId,
     ) -> bool {
         !self.locked
+    }
+
+    /// Marks the layout dirty whenever a drag or resize actually changed the
+    /// tree, so the app can persist it (see [`crate::persist`]).
+    fn on_edit(&mut self, edit_action: egui_tiles::EditAction) {
+        match edit_action {
+            egui_tiles::EditAction::TileDropped | egui_tiles::EditAction::TileResized => {
+                *self.layout_dirty = true;
+            }
+            // Dragging has not changed anything yet; selecting a tab is not a
+            // layout change.
+            egui_tiles::EditAction::TileDragged | egui_tiles::EditAction::TabSelected => {}
+        }
     }
 }
 
@@ -200,6 +221,7 @@ mod tests {
         let unlocked = DockBehavior {
             file_dialog: &mut file_dialog,
             locked: false,
+            layout_dirty: &mut false,
         };
         assert!(unlocked.is_tile_draggable(&tiles, pane_id));
         assert!(unlocked.is_container_resizable(&tiles, pane_id));
@@ -207,6 +229,7 @@ mod tests {
         let locked = DockBehavior {
             file_dialog: &mut file_dialog,
             locked: true,
+            layout_dirty: &mut false,
         };
         assert!(!locked.is_tile_draggable(&tiles, pane_id));
         assert!(!locked.is_container_resizable(&tiles, pane_id));
