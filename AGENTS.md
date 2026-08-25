@@ -21,6 +21,7 @@ cleverness.
 | `cargo clippy --all-targets` | Lint — must produce **zero warnings** |
 | `cargo fmt` / `cargo fmt --check` | Format — keep the tree formatted |
 | `build_app.bat` / `build_app.sh` | One-command build + run wrappers |
+| `distribute_app.bat` / `distribute_app.sh` | Package release artifacts (zip/tar.gz + SHA-256) into `dist/` |
 | `cargo doc --open` | Local API documentation |
 
 ## Code layout
@@ -32,6 +33,7 @@ src/
   dock.rs      # egui_tiles dockable workspace: demo panes + Log pane
   icon.rs      # bundled app icon (assets/icon.png) -> window/taskbar icon
   logging.rs   # egui_logger installation
+  persist.rs   # dock layout save/restore (per-user config dir, JSON)
 assets/        # icons (png/ico/icns), app.rc, Info.plist, .desktop, generator
 build.rs       # embeds assets/icon.ico into the Windows .exe
 ```
@@ -78,7 +80,11 @@ build.rs       # embeds assets/icon.ico into the Windows .exe
   targets (via `CARGO_CFG_TARGET_OS`) — never add unconditional resource
   compilation. Icon changes must keep the PNG/ICO/ICNS in sync; regenerate
   with `assets/generate_icons.ps1` and commit every output file.
-- **Do not** commit secrets, user data, or build artifacts (`target/`).
+- **Do not** commit secrets, user data, or build artifacts (`target/`,
+  `dist/`).
+- **Persistence**: layout changes are saved via `persist::save_layout`
+  (JSON in the per-user config dir). Keep new serializable state compatible
+  with old files — prefer additive fields with `serde(default)`.
 - **Keep the demo honest**: panes exist to demonstrate a crate. When a pane's
   purpose is done, remove the demo, not the dependency list.
 

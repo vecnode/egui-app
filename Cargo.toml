@@ -9,16 +9,22 @@ readme = "README.md"
 keywords = ["egui", "eframe", "gui", "template", "cross-platform"]
 
 [dependencies]
+# Per-user config directory for the persisted layout (already in the tree
+# via egui-file-dialog).
+directories = "6"
 eframe = "0.34.1"
 egui-file-dialog = "0.13.0"
 egui-phosphor = "0.12.0"
 egui_logger = "0.10.0"
 egui_plot = "0.35.0"
+# serde support is a default feature; used to persist the dock layout.
 egui_tiles = "0.15.0"
 # Decodes the bundled app icon (assets/icon.png) at startup. Only the PNG
 # decoder is enabled; no other image formats are pulled in.
 image = { version = "0.25", default-features = false, features = ["png"] }
 log = "0.4"
+serde = { version = "1", features = ["derive"] }
+serde_json = "1"
 
 [build-dependencies]
 # Embeds assets/icon.ico into the Windows executable (build.rs).

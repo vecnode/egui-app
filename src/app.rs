@@ -10,7 +10,8 @@ use eframe::egui;
 use egui_file_dialog::FileDialog;
 use egui_phosphor::regular;
 
-use crate::dock::{DockBehavior, DockPane, create_dock_tree};
+use crate::dock::{DockBehavior, DockPane};
+use crate::persist;
 
 /// Label shown on the left side of the top bar.
 const TOP_BAR_TITLE: &str = "egui-app";
@@ -31,11 +32,12 @@ pub struct TemplateApp {
 }
 
 impl TemplateApp {
-    /// Creates the application with a fresh dock layout, file dialog, and the
-    /// initial theme preference (derived from the OS theme at startup).
+    /// Creates the application with the persisted dock layout (or the default
+    /// one on first run), a fresh file dialog, and the initial theme
+    /// preference (derived from the OS theme at startup).
     pub fn new(theme_pref: egui::ThemePreference) -> Self {
         Self {
-            tree: create_dock_tree(),
+            tree: persist::load_layout(),
             file_dialog: FileDialog::new(),
             locked: false,
             theme_pref,
@@ -74,11 +76,18 @@ impl eframe::App for TemplateApp {
                     )),
             )
             .show_inside(ui, |ui| {
+                // The behavior flags the layout as dirty whenever a drag or
+                // resize changed the tree; persist it right after the frame.
+                let mut layout_dirty = false;
                 let mut behavior = DockBehavior {
                     file_dialog: &mut self.file_dialog,
                     locked: self.locked,
+                    layout_dirty: &mut layout_dirty,
                 };
                 self.tree.ui(&mut behavior, ui);
+                if layout_dirty {
+                    persist::save_layout(&self.tree);
+                }
 
                 self.file_dialog.update(ui);
                 if let Some(path) = self.file_dialog.take_picked() {

@@ -21,7 +21,8 @@ The stack:
 │  main.rs → app.rs (TemplateApp) → dock.rs (egui_tiles)       │
 │              │            │                                   │
 │              ├─ icon.rs (bundled app icon)                   │
-│              └─ logging.rs (egui_logger + log)                │
+│              ├─ logging.rs (egui_logger + log)                │
+│              └─ persist.rs (dock layout save/restore)         │
 │  build.rs — embeds assets/icon.ico into the .exe (Windows)   │
 ├──────────────────────────────────────────────────────────────┤
 │ eframe  — windowing + event loop + renderer wiring           │
@@ -33,8 +34,9 @@ The stack:
 
 Crates: `eframe`, `egui_file_dialog`, `egui_phosphor`, `egui_logger`,
 `egui_plot`, `egui_tiles`, `log`, `image` (icon decode),
-`embed-resource` (Windows icon, build-only) — see `Cargo.toml` and the
-README feature table.
+`embed-resource` (Windows icon, build-only), `serde` + `serde_json`
+(layout persistence), `directories` (per-user config dir) — see
+`Cargo.toml` and the README feature table.
 
 ## 2. Runtime lifecycle
 
@@ -52,7 +54,9 @@ README feature table.
          the initial light/dark preference. egui/winit read the OS setting
          in safe Rust (native APIs on each platform); the top bar can then
          switch between light and dark explicitly.
-      3. `TemplateApp::new()` constructs the dock tree and file dialog.
+      3. `TemplateApp::new()` loads the persisted layout
+         (`persist::load_layout()`, falling back to the default dock tree on
+         first run) and constructs the file dialog.
 2. **Event loop** (owned by eframe; the app never sees it directly). Each
    frame eframe calls the two `eframe::App` hooks on `TemplateApp`:
    - `logic()` — frame-independent bookkeeping (currently logs a one-shot
@@ -134,6 +138,17 @@ Wraps `egui_logger::builder()`. The log records are captured into an
 in-memory buffer rendered by the dockable "Log" pane; nothing is written to
 disk or stdout by default, which keeps the template free of side effects.
 
+### `src/persist.rs` — layout persistence
+
+The `egui_tiles::Tree` (pane identities + arrangement) is serialized to
+pretty JSON via `serde`/`serde_json` and stored in the per-user config
+directory resolved by the `directories` crate (so it works in distributed
+builds, on every platform). `load_layout()` runs at startup and falls back
+to `create_dock_tree()` on any error; `save_layout()` runs after every
+`EditAction::TileDropped` / `TileResized`, flagged through
+`DockBehavior::layout_dirty`. Persistence is best-effort: failures are
+logged, never fatal.
+
 ### Theming — no custom platform code
 
 Theme handling needs no platform-specific module: at startup `main.rs` reads
@@ -175,10 +190,12 @@ input (winit) → egui (immediate mode) → TemplateApp::ui()
    │        toggles TemplateApp::locked    (drives DockBehavior::locked)
    │   CentralPanel (theme backdrop + 1px border stroke)
    │     └─ tree.ui(&mut DockBehavior, ui) ← dock panes render, incl.
-   │     │                                     the Log pane
-   │     │                                     (egui_logger::logger_ui)
-   │     │                                     move handle → drag when
-   │     │                                     unlocked
+   │     │     │                              the Log pane
+   │     │     │                              (egui_logger::logger_ui)
+   │     │     │                              move handle → drag when
+   │     │     │                              unlocked
+   │     │     └─ EditAction::TileDropped / TileResized → layout_dirty
+   │     │          → persist::save_layout(&tree)        (JSON, config dir)
    │     └─ file_dialog.update(ui)           ← picker advances/renders
    │     └─ take_picked() → log::info!(path)
    │          │
@@ -201,11 +218,12 @@ read/written during the frame; there are no event handlers to wire up.
 ## 6. Testing strategy
 
 - Unit tests live in `#[cfg(test)] mod tests` inside each module
-  (`dock.rs`).
+  (`dock.rs`, `persist.rs`).
 - Testable seams: `create_dock_tree()` is a pure constructor — the dock test
   asserts a root tile exists and multiple tiles are present. The layout lock
   is tested through the `Behavior` hooks (`is_tile_draggable` /
-  `is_container_resizable`).
+  `is_container_resizable`). Persistence is tested by round-tripping a tree
+  through JSON and by asserting `save_layout` never panics.
 - UI rendering is intentionally **not** unit-tested (immediate-mode code is
   exercised by running the app); keep helpers pure so the important logic is
   covered.
@@ -214,7 +232,8 @@ read/written during the frame; there are no event handlers to wire up.
 
 - **New dock pane**: add a variant to `DockPaneKind` and a branch in
   `pane_ui` (or restructure `create_dock_tree`), keeping pane content in
-  small helper functions like `icons_pane`/`plot_pane`.
+  small helper functions like `icons_pane`/`plot_pane`. New pane kinds are
+  automatically persisted once they derive `serde`.
 - **New app-wide state**: add fields to `TemplateApp`; read/write them from
   `ui()`.
 - **Theme behavior**: everything goes through `egui::ThemePreference` — no
@@ -224,9 +243,13 @@ read/written during the frame; there are no event handlers to wire up.
   without touching the app code.
 - **New icon**: replace the PNGs/ICO/ICNS in `assets/` (or edit
   `generate_icons.ps1` and re-run it), then commit all regenerated files.
+- **Persisted settings**: `persist.rs` is the pattern — a per-user config
+  file via `directories`; add more files (e.g. `settings.json`) the same way.
 - **Distribution**: `cargo build --release` (LTO + strip enabled in
   `Cargo.toml`); `build_app.bat` / `build_app.sh` wrap build + run;
-  `build_app.sh --bundle` produces a macOS `.app` with the icon.
+  `distribute_app.bat` / `distribute_app.sh` package release artifacts with
+  SHA-256 checksums (Linux tarball, macOS `.app` zip, Windows portable zip);
+  signing/notarization is deferred to CI.
 
 ## 8. Reproducibility
 
