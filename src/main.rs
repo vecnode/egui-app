@@ -13,6 +13,9 @@
 //! - [`persist`] — dock layout persistence (save/restore across runs)
 
 #![warn(missing_docs)]
+// Security posture: this crate contains no `unsafe` code, and this lint
+// guarantees that stays true for every future change.
+#![forbid(unsafe_code)]
 
 mod app;
 mod dock;

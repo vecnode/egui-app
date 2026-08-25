@@ -25,6 +25,10 @@ const APP_ORG: &str = "vecnode";
 const APP_NAME: &str = "egui-app";
 /// File name of the persisted layout (JSON, human-readable).
 const LAYOUT_FILE: &str = "layout.json";
+/// Upper bound for the layout file size. The file is user-writable config,
+/// so a corrupted or hostile file must never be able to exhaust memory.
+/// A real layout is a few KB; 1 MiB is far more than enough.
+const MAX_LAYOUT_SIZE: u64 = 1024 * 1024;
 
 /// Returns the path of the layout file, or `None` when no per-user config
 /// directory can be determined.
@@ -34,16 +38,40 @@ pub fn layout_file_path() -> Option<PathBuf> {
 }
 
 /// Loads the saved layout, falling back to [`create_dock_tree`] when no file
-/// exists or it cannot be parsed.
+/// exists, it is too large, or it cannot be parsed into a valid tree.
 pub fn load_layout() -> egui_tiles::Tree<DockPane> {
     let Some(path) = layout_file_path() else {
         return create_dock_tree();
     };
+    // Reject oversized files before reading them (see `MAX_LAYOUT_SIZE`).
+    match std::fs::metadata(&path) {
+        Ok(meta) if meta.len() > MAX_LAYOUT_SIZE => {
+            log::warn!(
+                "ignoring oversized layout file {} ({} bytes)",
+                path.display(),
+                meta.len()
+            );
+            return create_dock_tree();
+        }
+        Ok(_) => {}
+        Err(err) if err.kind() == std::io::ErrorKind::NotFound => return create_dock_tree(),
+        Err(err) => {
+            log::warn!("could not stat layout file {}: {err}", path.display());
+            return create_dock_tree();
+        }
+    }
     match std::fs::read(&path) {
-        Ok(bytes) => serde_json::from_slice(&bytes).unwrap_or_else(|err| {
-            log::warn!("could not parse saved layout {}: {err}", path.display());
-            create_dock_tree()
-        }),
+        Ok(bytes) => match serde_json::from_slice::<egui_tiles::Tree<DockPane>>(&bytes) {
+            Ok(tree) if tree.root.is_some() => tree,
+            Ok(_) => {
+                log::warn!("saved layout {} has no root; using default", path.display());
+                create_dock_tree()
+            }
+            Err(err) => {
+                log::warn!("could not parse saved layout {}: {err}", path.display());
+                create_dock_tree()
+            }
+        },
         Err(err) if err.kind() == std::io::ErrorKind::NotFound => create_dock_tree(),
         Err(err) => {
             log::warn!("could not read layout file {}: {err}", path.display());

@@ -142,8 +142,29 @@ fn demo_pane_ui(ui: &mut egui::Ui, nr: usize, file_dialog: &mut FileDialog) {
 }
 
 /// Renders the in-app log viewer as a regular dock pane.
+///
+/// egui_logger's default level/highlight colors are tuned for dark themes
+/// (light gray on black); rebuild them per frame from the current theme so
+/// the log text stays readable when the app switches light/dark.
 fn log_pane_ui(ui: &mut egui::Ui) {
-    egui_logger::logger_ui().show(ui);
+    let (highlight, warn, error) = if ui.visuals().dark_mode {
+        (
+            egui::Color32::LIGHT_GRAY,
+            egui::Color32::YELLOW,
+            egui::Color32::RED,
+        )
+    } else {
+        (
+            egui::Color32::DARK_GRAY,
+            egui::Color32::from_rgb(150, 95, 0),  // dark amber
+            egui::Color32::from_rgb(180, 40, 40), // dark red
+        )
+    };
+    egui_logger::logger_ui()
+        .highlight_color(highlight)
+        .warn_color(warn)
+        .error_color(error)
+        .show(ui);
 }
 
 /// Demo pane 0: a "File dialog:" label with the folder-open button that

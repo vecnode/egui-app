@@ -60,6 +60,9 @@ build.rs       # embeds assets/icon.ico into the Windows .exe
 - **Tests**: put unit tests in a `#[cfg(test)] mod tests` at the bottom of the
   module they test. UI code is not unit-tested; keep pure helpers (tree
   construction, detection logic) testable.
+- **Security**: `#![forbid(unsafe_code)]` must stay — never introduce
+  `unsafe`. Keep reads of user-writable files bounded and validated (see
+  `persist.rs`), and run `cargo audit` before releases.
 
 ## Constraints & cautions
 
