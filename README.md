@@ -79,9 +79,9 @@ drag or resize a pane, and restored on the next launch. The file is JSON in
 the platform's per-user config directory, so it also works in distributed
 builds:
 
-- **Windows** — `%APPDATA%\vecnode\egui-app\config\layout.json`
-- **Linux** — `~/.config/vecnode/egui-app/layout.json`
-- **macOS** — `~/Library/Application Support/com.vecnode.egui-app/layout.json`
+- **Windows** — `%APPDATA%\user\egui-app\config\layout.json`
+- **Linux** — `~/.config/user/egui-app/layout.json`
+- **macOS** — `~/Library/Application Support/com.user.egui-app/layout.json`
 
 A corrupt or missing file simply falls back to the default layout.
 
@@ -154,4 +154,4 @@ a vulnerability.
 
 ## License
 
-Licensed under [MIT](LICENSE), © 2026 vecnode.
+Licensed under [MIT](LICENSE), © 2026 user.

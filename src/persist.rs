@@ -8,9 +8,9 @@
 //!
 //! Typical locations of the file:
 //!
-//! - Windows: `%APPDATA%\vecnode\egui-app\config\layout.json`
-//! - Linux:   `~/.config/vecnode/egui-app/layout.json`
-//! - macOS:   `~/Library/Application Support/com.vecnode.egui-app/layout.json`
+//! - Windows: `%APPDATA%\user\egui-app\config\layout.json`
+//! - Linux:   `~/.config/user/egui-app/layout.json`
+//! - macOS:   `~/Library/Application Support/com.user.egui-app/layout.json`
 //!
 //! A corrupt or unreadable file is never fatal: the app falls back to the
 //! default layout and logs a warning.
@@ -21,7 +21,7 @@ use crate::dock::{DockPane, create_dock_tree};
 
 /// Qualifier / organization / application used to derive the config dir.
 const APP_QUALIFIER: &str = "com";
-const APP_ORG: &str = "vecnode";
+const APP_ORG: &str = "user";
 const APP_NAME: &str = "egui-app";
 /// File name of the persisted layout (JSON, human-readable).
 const LAYOUT_FILE: &str = "layout.json";
