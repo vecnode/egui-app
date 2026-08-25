@@ -1,0 +1,11 @@
+# Normalize line endings across platforms.
+* text=auto
+
+# Shell scripts must always stay LF so they run correctly on Linux/macOS.
+*.sh text eol=lf
+
+# Windows batch files are safest with CRLF line endings.
+*.bat text eol=crlf
+
+# Lock files are machine-generated; keep them as-is.
+Cargo.lock text eol=lf
