@@ -48,11 +48,10 @@ README feature table.
       The creator closure runs once, before the first frame:
       1. `install_icon_font()` adds the egui-phosphor icon glyphs to the
          font atlas.
-      2. `ctx.set_theme(ThemePreference::System)` makes the theme follow the
-         operating system's light/dark setting. egui/winit read the OS
-         setting in safe Rust (native APIs on each platform) and push
-         `ThemeChanged` events, so the theme also updates live when the OS
-         theme changes. The user can override it from the top bar.
+      2. Reads the OS theme once (`ctx.system_theme()`) and applies it as
+         the initial light/dark preference. egui/winit read the OS setting
+         in safe Rust (native APIs on each platform); the top bar can then
+         switch between light and dark explicitly.
       3. `TemplateApp::new()` constructs the dock tree and file dialog.
 2. **Event loop** (owned by eframe; the app never sees it directly). Each
    frame eframe calls the two `eframe::App` hooks on `TemplateApp`:
@@ -68,8 +67,8 @@ README feature table.
 ### `src/main.rs` — entry point
 
 Thin by design. Owns `APP_TITLE`, the `NativeOptions` (viewport + app icon),
-and the one-time startup wiring (logger, fonts, `ThemePreference::System`).
-No UI logic lives here.
+and the one-time startup wiring (logger, fonts, initial OS theme). No UI
+logic lives here.
 
 ### `src/app.rs` — application state
 
@@ -81,15 +80,17 @@ implementation:
 | `tree: egui_tiles::Tree<DockPane>` | The dockable layout shown in the central panel |
 | `file_dialog: FileDialog` | Shared native file picker, opened from dock pane 0 |
 | `locked: bool` | Layout lock state, toggled from the top bar |
-| `theme_pref: ThemePreference` | System/light/dark preference, toggled from the top bar |
+| `theme_pref: ThemePreference` | Light/dark preference (never `System`); initial value from the OS theme, toggled from the top bar |
 | `logged_startup: bool` | One-shot flag for the startup log message |
 
 `ui()` composes the frame: the top bar (`top_bar()`, app label on the left,
-theme toggle and lock/unlock toggle on the right) is drawn first, then the
-`CentralPanel` — framed by a 1px border stroke that adapts to the current
-theme — hosts the dock tree (via `DockBehavior`), and the file dialog is
-advanced and polled for results (`take_picked()`). The log viewer is not a
-separate window — it lives in its own dock pane (see below).
+light/dark toggle and lock/unlock toggle on the right) is drawn first, then
+the `CentralPanel` — filled with the theme-aware `extreme_bg_color` backdrop
+so panes (`panel_fill`) are never flat black, framed by a 1px border stroke
+that adapts to the current theme — hosts the dock tree (via
+`DockBehavior`), and the file dialog is advanced and polled for results
+(`take_picked()`). The log viewer is not a separate window — it lives in its
+own dock pane (see below).
 
 ### `src/dock.rs` — dockable workspace (egui_tiles)
 
@@ -115,8 +116,8 @@ separate window — it lives in its own dock pane (see below).
   `UiResponse::DragStarted`, so panes can be torn out and re-docked at
   runtime. The handle is hidden while the layout is locked.
 
-Demo panes: pane 0 shows egui-phosphor icon buttons + file dialog trigger;
-pane 1 shows an `egui_plot` sine wave.
+Demo panes: pane 0 shows a "File dialog:" label with the folder-open button
+that opens the native file picker; pane 1 shows an `egui_plot` sine wave.
 
 ### `src/icon.rs` — application icon
 
@@ -135,12 +136,12 @@ disk or stdout by default, which keeps the template free of side effects.
 
 ### Theming — no custom platform code
 
-Theme handling needs no platform-specific module: egui's
-`ThemePreference::System` (the default) makes egui/winit read the OS
-light/dark setting through the native APIs on each platform and keep it in
-sync live. The top bar cycles the preference (`System → Light → Dark →
-System`) by calling `Context::set_theme`. There is deliberately no
-`reg.exe`-spawning or `#[cfg]`-laden platform code anymore.
+Theme handling needs no platform-specific module: at startup `main.rs` reads
+the OS light/dark setting once via `ctx.system_theme()` (egui/winit use the
+native APIs on each platform — no shelling out) and applies it as the
+initial preference. The top bar then toggles between light and dark by
+calling `Context::set_theme`. There is deliberately no `reg.exe`-spawning or
+`#[cfg]`-laden platform code anymore.
 
 ### `build.rs` — Windows resource embedding
 
@@ -169,10 +170,10 @@ input (winit) → egui (immediate mode) → TemplateApp::ui()
    │                                      │
    │          ┌───────────────────────────┘
    │          ▼
-   │   Panel::top "top_bar"               ← label + theme toggle +
+   │   Panel::top "top_bar"               ← label + light/dark toggle +
    │     └─ toggles TemplateApp::theme_pref (→ ctx.set_theme) and
    │        toggles TemplateApp::locked    (drives DockBehavior::locked)
-   │   CentralPanel (1px border stroke)
+   │   CentralPanel (theme backdrop + 1px border stroke)
    │     └─ tree.ui(&mut DockBehavior, ui) ← dock panes render, incl.
    │     │                                     the Log pane
    │     │                                     (egui_logger::logger_ui)
@@ -217,8 +218,8 @@ read/written during the frame; there are no event handlers to wire up.
 - **New app-wide state**: add fields to `TemplateApp`; read/write them from
   `ui()`.
 - **Theme behavior**: everything goes through `egui::ThemePreference` — no
-  custom platform code. Add more preferences (e.g. a persistent setting) by
-  extending the `theme_pref` cycle in `top_bar()`.
+  custom platform code. Extend the light/dark toggle in `top_bar()` (e.g. a
+  persistent setting loaded from disk).
 - **New logging sink**: extend `logging.rs` (e.g. `env_logger` for stdout)
   without touching the app code.
 - **New icon**: replace the PNGs/ICO/ICNS in `assets/` (or edit

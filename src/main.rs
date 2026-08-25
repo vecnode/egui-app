@@ -42,13 +42,15 @@ fn main() -> eframe::Result<()> {
         Box::new(|cc| {
             install_icon_font(&cc.egui_ctx);
 
-            // Follow the operating system's light/dark theme automatically.
+            // Start by following the operating system's light/dark theme.
             // egui/eframe reads the OS setting in safe Rust (via winit, which
-            // uses the native APIs on each platform) and keeps it updated when
-            // the OS theme changes. The user can override it from the top bar.
-            cc.egui_ctx.set_theme(egui::ThemePreference::System);
+            // uses the native APIs on each platform). The top bar then lets
+            // the user switch between light and dark explicitly.
+            let initial_theme = cc.egui_ctx.system_theme().unwrap_or(egui::Theme::Dark);
+            let initial_pref = egui::ThemePreference::from(initial_theme);
+            cc.egui_ctx.set_theme(initial_pref);
 
-            Ok(Box::new(app::TemplateApp::new()))
+            Ok(Box::new(app::TemplateApp::new(initial_pref)))
         }),
     )
 }

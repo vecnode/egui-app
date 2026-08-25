@@ -125,17 +125,11 @@ fn log_pane_ui(ui: &mut egui::Ui) {
     egui_logger::logger_ui().show(ui);
 }
 
-/// Demo pane 0: demonstrates egui-phosphor icon glyphs and the file dialog.
+/// Demo pane 0: a "File dialog:" label with the folder-open button that
+/// opens the native file picker.
 fn icons_pane(ui: &mut egui::Ui, file_dialog: &mut FileDialog) {
-    ui.label(format!(
-        "Phosphor icons: {} {} {}",
-        regular::ALARM,
-        regular::AIRPLANE,
-        regular::FOLDER_OPEN
-    ));
     ui.horizontal(|ui| {
-        let _ = ui.button(regular::ALARM);
-        let _ = ui.button(regular::AIRPLANE);
+        ui.label("File dialog:");
         if ui.button(regular::FOLDER_OPEN).clicked() {
             file_dialog.pick_file();
         }
