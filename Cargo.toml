@@ -4,7 +4,7 @@ version = "0.1.0"
 edition = "2024"
 description = "Cross-platform desktop application template built with egui/eframe"
 license = "MIT"
-repository = "https://github.com/user/egui-app.git"
+repository = "https://github.com/vecnode/egui-app.git"
 readme = "README.md"
 keywords = ["egui", "eframe", "gui", "template", "cross-platform"]
 
