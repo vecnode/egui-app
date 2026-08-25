@@ -1,3 +1,14 @@
-target/
+# Rust / Cargo build output
 /target
-Cargo.lock
+
+# Cargo.lock is COMMITTED for this application (reproducible builds).
+# Do not add it to .gitignore.
+
+# Editors / IDEs
+.vscode/
+.idea/
+*.iml
+
+# OS junk
+.DS_Store
+Thumbs.db

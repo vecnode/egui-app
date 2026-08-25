@@ -2,6 +2,11 @@
 name = "egui_app"
 version = "0.1.0"
 edition = "2024"
+description = "Cross-platform desktop application template built with egui/eframe"
+license = "MIT"
+repository = "https://github.com/vecnode/egui-app.git"
+readme = "README.md"
+keywords = ["egui", "eframe", "gui", "template", "cross-platform"]
 
 [dependencies]
 eframe = "0.34.1"
@@ -11,3 +16,9 @@ egui_logger = "0.10.0"
 egui_plot = "0.35.0"
 egui_tiles = "0.15.0"
 log = "0.4"
+
+# Smaller, faster release binaries. Build times increase slightly, which is
+# the right trade-off for distribution builds of a GUI application.
+[profile.release]
+lto = "thin"
+strip = true
