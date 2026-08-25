@@ -78,12 +78,14 @@ implementation:
 | --- | --- |
 | `tree: egui_tiles::Tree<DockPane>` | The dockable layout shown in the central panel |
 | `file_dialog: FileDialog` | Shared native file picker, opened from dock pane 0 |
+| `locked: bool` | Layout lock state, toggled from the top bar |
 | `logged_startup: bool` | One-shot flag for the startup log message |
 
-`ui()` composes the frame: the `CentralPanel` hosts the dock tree (via
-`DockBehavior`), and the file dialog is advanced and polled for results
-(`take_picked()`). The log viewer is not a separate window — it lives in its
-own dock pane (see below).
+`ui()` composes the frame: the top bar (`top_bar()`, app label on the left,
+lock/unlock toggle on the right) is drawn first, then the `CentralPanel`
+hosts the dock tree (via `DockBehavior`) and the file dialog is advanced and
+polled for results (`take_picked()`). The log viewer is not a separate
+window — it lives in its own dock pane (see below).
 
 ### `src/dock.rs` — dockable workspace (egui_tiles)
 
@@ -91,7 +93,10 @@ own dock pane (see below).
   viewer). A pane's tab title and content are derived from its kind.
 - `DockPane` — a pane identified by its kind.
 - `DockBehavior` — implements `egui_tiles::Behavior<DockPane>`, bridging the
-  dock tree with shared app state (the `FileDialog`).
+  dock tree with shared app state (the `FileDialog`) and the layout lock
+  flag. While locked, `is_tile_draggable` and `is_container_resizable`
+  return `false`, which disables pane/tab dragging and splitter resizing
+  (egui_tiles gates all of those through these hooks).
 - `create_dock_tree()` — builds the initial layout:
 
   ```
@@ -102,8 +107,11 @@ own dock pane (see below).
   └── tab "Log"        → the in-app log viewer (egui_logger)
   ```
 
-  Every pane gets a "Drag to dock" button (via `egui::Sense::drag()`), so
-  panes — including the Log — can be torn out and re-docked at runtime.
+  Every pane — including the Log — renders a small Phosphor "move" handle
+  (`ARROWS_OUT_CARDINAL`) in its top-right corner, 6px from the top and right
+  edges, drawn with `ui.put` over the pane content. Dragging it returns
+  `UiResponse::DragStarted`, so panes can be torn out and re-docked at
+  runtime. The handle is hidden while the layout is locked.
 
 Demo panes: pane 0 shows egui-phosphor icon buttons + file dialog trigger;
 pane 1 shows an `egui_plot` sine wave.
@@ -164,10 +172,14 @@ input (winit) → egui (immediate mode) → TemplateApp::ui()
    │                                      │
    │          ┌───────────────────────────┘
    │          ▼
+   │   Panel::top "top_bar"               ← label + lock/unlock toggle
+   │     └─ toggles TemplateApp::locked    (drives DockBehavior::locked)
    │   CentralPanel
-   │     └─ tree.ui(&mut DockBehavior, ui)   ← dock panes render,
-   │     │                                     incl. the Log pane
+   │     └─ tree.ui(&mut DockBehavior, ui) ← dock panes render, incl.
+   │     │                                     the Log pane
    │     │                                     (egui_logger::logger_ui)
+   │     │                                     move handle → drag when
+   │     │                                     unlocked
    │     └─ file_dialog.update(ui)           ← picker advances/renders
    │     └─ take_picked() → log::info!(path)
    │          │

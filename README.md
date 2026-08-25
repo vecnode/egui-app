@@ -5,14 +5,15 @@ A cross-platform desktop application template built with [egui](https://github.c
 ## Features
 
 
-- Immediate-mode GUI + windowing | [`eframe`](https://crates.io/crates/eframe) / [`egui`](https://crates.io/crates/egui) | Whole app 
-- Dockable, resizable panes | [`egui_tiles`](https://crates.io/crates/egui_tiles) | "Dock pane" tabs (horizontal splits, grids) 
-- Line / scatter plots | [`egui_plot`](https://crates.io/crates/egui_plot) | Pane 1: `sin(x)` 
-- Native file picker | [`egui-file-dialog`](https://crates.io/crates/egui-file-dialog) | Pane 0: folder-open button 
-- Icon glyph font | [`egui-phosphor`](https://crates.io/crates/egui-phosphor) | Pane 0 buttons 
-- In-app log viewer | [`egui_logger`](https://crates.io/crates/egui_logger) | Dockable "Log" pane 
-- Structured logging | [`log`](https://crates.io/crates/log) | `log::info!` everywhere 
-- Bundled app icon | [`image`](https://crates.io/crates/image) + [`embed-resource`](https://crates.io/crates/embed-resource) | Window title bar, taskbar/dock, `.exe`/`.app` 
+- Immediate-mode GUI + windowing - [`eframe`](https://crates.io/crates/eframe) / [`egui`](https://crates.io/crates/egui)
+- Dockable, resizable panes - [`egui_tiles`](https://crates.io/crates/egui_tiles) (Phosphor move handle in each pane; splitters, tabs, grids)
+- Layout lock — top-bar lock/unlock button (right side) freezes pane dragging and resizing
+- Line / scatter plots - [`egui_plot`](https://crates.io/crates/egui_plot)
+- Native file picker - [`egui-file-dialog`](https://crates.io/crates/egui-file-dialog) 
+- Icon glyph font - [`egui-phosphor`](https://crates.io/crates/egui-phosphor)
+- In-app log viewer - [`egui_logger`](https://crates.io/crates/egui_logger) 
+- Structured logging - [`log`](https://crates.io/crates/log) 
+- Bundled app icon - [`image`](https://crates.io/crates/image) + [`embed-resource`](https://crates.io/crates/embed-resource)
 
 Platforms:
 
