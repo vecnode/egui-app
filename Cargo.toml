@@ -15,7 +15,14 @@ egui-phosphor = "0.12.0"
 egui_logger = "0.10.0"
 egui_plot = "0.35.0"
 egui_tiles = "0.15.0"
+# Decodes the bundled app icon (assets/icon.png) at startup. Only the PNG
+# decoder is enabled; no other image formats are pulled in.
+image = { version = "0.25", default-features = false, features = ["png"] }
 log = "0.4"
+
+[build-dependencies]
+# Embeds assets/icon.ico into the Windows executable (build.rs).
+embed-resource = "3"
 
 # Smaller, faster release binaries. Build times increase slightly, which is
 # the right trade-off for distribution builds of a GUI application.

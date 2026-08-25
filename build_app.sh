@@ -6,6 +6,7 @@
 #   ./build_app.sh                 build (debug) and run
 #   ./build_app.sh --release       build (release) and run
 #   ./build_app.sh --build-only    build without launching the app
+#   ./build_app.sh --bundle        build and wrap in a macOS .app bundle
 #   ./build_app.sh --help          show this help
 #
 # Exit codes: 0 on success, 1 on argument/build errors, otherwise the
@@ -22,13 +23,16 @@ cd "$SCRIPT_DIR"
 PROFILE="debug"
 CARGO_FLAGS=()
 RUN=1
+BUNDLE=0
 
 usage() {
     cat <<'EOF'
-Usage: build_app.sh [--release] [--build-only] [--help]
+Usage: build_app.sh [--release] [--build-only] [--bundle] [--help]
 
   --release      build with the release profile (target/release)
   --build-only   build but do not launch the app
+  --bundle       macOS only: also wrap the binary in egui_app.app with the
+                 app icon (assets/icon.icns) and Info.plist
   --help         show this help
 EOF
 }
@@ -41,6 +45,9 @@ for arg in "$@"; do
             ;;
         --build-only)
             RUN=0
+            ;;
+        --bundle)
+            BUNDLE=1
             ;;
         --help|-h)
             usage
@@ -62,6 +69,20 @@ fi
 
 echo "[1/2] Building egui_app ($PROFILE)..."
 cargo build "${CARGO_FLAGS[@]}"
+
+if [ "$BUNDLE" -eq 1 ]; then
+    if [ "$(uname -s)" != "Darwin" ]; then
+        echo "[WARN] --bundle is only supported on macOS; skipping the .app bundle." >&2
+    else
+        APP_BUNDLE="target/$PROFILE/egui_app.app"
+        mkdir -p "$APP_BUNDLE/Contents/MacOS" "$APP_BUNDLE/Contents/Resources"
+        cp "target/$PROFILE/egui_app" "$APP_BUNDLE/Contents/MacOS/egui_app"
+        cp assets/icon.icns "$APP_BUNDLE/Contents/Resources/icon.icns"
+        cp assets/macos/Info.plist "$APP_BUNDLE/Contents/Info.plist"
+        chmod +x "$APP_BUNDLE/Contents/MacOS/egui_app"
+        echo "Bundle created: $APP_BUNDLE"
+    fi
+fi
 
 if [ "$RUN" -eq 0 ]; then
     echo "Build succeeded. Binary: target/$PROFILE/egui_app"

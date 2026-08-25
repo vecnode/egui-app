@@ -1,0 +1,3 @@
+// Windows resource script for egui_app.exe.
+// The icon path is relative to this file's directory (assets/windows/).
+IDI_ICON1 ICON "..\\icon.ico"
