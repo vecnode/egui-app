@@ -2,8 +2,9 @@
 
 A cross-platform desktop application template built with [egui](https://github.com/emilk/egui) and [eframe](https://github.com/emilk/egui/tree/master/crates/eframe).
 
-## Features
+![egui-app screenshot](assets/print.png)
 
+## Features
 
 - Immediate-mode GUI + windowing - [`eframe`](https://crates.io/crates/eframe) / [`egui`](https://crates.io/crates/egui)
 - Dockable, resizable panes - [`egui_tiles`](https://crates.io/crates/egui_tiles) (Phosphor move handle in each pane; splitters, tabs)
