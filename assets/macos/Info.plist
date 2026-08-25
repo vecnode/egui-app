@@ -1,0 +1,39 @@
+<?xml version="1.0" encoding="UTF-8"?>
+<!DOCTYPE plist PUBLIC "-//Apple//DTD PLIST 1.0//EN" "http://www.apple.com/DTDs/PropertyList-1.0.dtd">
+<!--
+  Info.plist template for the egui-app macOS bundle.
+
+  Used by `build_app.sh --bundle` (macOS only), which produces:
+    target/<profile>/egui_app.app/Contents/
+      Info.plist        <- this file
+      MacOS/egui_app    <- the release binary
+      Resources/icon.icns
+
+  Adjust CFBundleIdentifier / CFBundleDisplayName for your own app.
+-->
+<plist version="1.0">
+<dict>
+	<key>CFBundleName</key>
+	<string>egui-app</string>
+	<key>CFBundleDisplayName</key>
+	<string>egui-app</string>
+	<key>CFBundleIdentifier</key>
+	<string>com.vecnode.egui-app</string>
+	<key>CFBundleVersion</key>
+	<string>0.1.0</string>
+	<key>CFBundleShortVersionString</key>
+	<string>0.1.0</string>
+	<key>CFBundleExecutable</key>
+	<string>egui_app</string>
+	<key>CFBundleIconFile</key>
+	<string>icon</string>
+	<key>CFBundlePackageType</key>
+	<string>APPL</string>
+	<key>LSMinimumSystemVersion</key>
+	<string>11.0</string>
+	<key>NSHighResolutionCapable</key>
+	<true/>
+	<key>NSPrincipalClass</key>
+	<string>NSApplication</string>
+</dict>
+</plist>

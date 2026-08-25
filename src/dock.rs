@@ -4,26 +4,41 @@
 //! `egui_tiles`: horizontal splits, grids, and tabs. Panes can be dragged
 //! between tabs and splitters can be resized at runtime, so this module is a
 //! good starting point for building a full editor-style layout.
+//!
+//! The in-app log viewer ([`egui_logger`]) is also a dock pane here, which
+//! makes it draggable and dockable exactly like every other tab.
 
 use eframe::egui;
 use egui_file_dialog::FileDialog;
 use egui_phosphor::regular;
 use egui_plot::{Line, Plot, PlotPoints};
 
-/// A single dock pane, identified by its number.
+/// The kind of content a [`DockPane`] hosts.
+#[derive(Clone, Copy, PartialEq, Eq)]
+pub enum DockPaneKind {
+    /// One of the template demo panes (icons / plot / placeholder).
+    Demo(usize),
+    /// The in-app log viewer backed by [`egui_logger`].
+    Log,
+}
+
+/// A single dock pane.
 pub struct DockPane {
-    nr: usize,
+    kind: DockPaneKind,
 }
 
 /// Bridges the dock tree with the rest of the application state, currently
-/// the shared [`FileDialog`] that pane 0 opens.
+/// the shared [`FileDialog`] that the icon demo pane opens.
 pub struct DockBehavior<'a> {
     pub file_dialog: &'a mut FileDialog,
 }
 
 impl egui_tiles::Behavior<DockPane> for DockBehavior<'_> {
     fn tab_title_for_pane(&mut self, pane: &DockPane) -> egui::WidgetText {
-        format!("Pane {}", pane.nr).into()
+        match pane.kind {
+            DockPaneKind::Demo(nr) => format!("Pane {nr}").into(),
+            DockPaneKind::Log => "Log".into(),
+        }
     }
 
     fn pane_ui(
@@ -32,16 +47,9 @@ impl egui_tiles::Behavior<DockPane> for DockBehavior<'_> {
         _tile_id: egui_tiles::TileId,
         pane: &mut DockPane,
     ) -> egui_tiles::UiResponse {
-        ui.vertical(|ui| {
-            ui.heading(format!("Dock pane {}", pane.nr));
-
-            match pane.nr {
-                0 => icons_pane(ui, &mut *self.file_dialog),
-                1 => plot_pane(ui),
-                _ => {
-                    ui.label("Resize the splitters or drag tabs to dock tiles.");
-                }
-            }
+        ui.vertical(|ui| match pane.kind {
+            DockPaneKind::Demo(nr) => demo_pane_ui(ui, nr, &mut *self.file_dialog),
+            DockPaneKind::Log => log_pane_ui(ui),
         });
 
         // The bottom button makes every pane draggable so it can be torn out
@@ -57,7 +65,24 @@ impl egui_tiles::Behavior<DockPane> for DockBehavior<'_> {
     }
 }
 
-/// Pane 0: demonstrates egui-phosphor icon glyphs and the file dialog.
+/// Renders one of the numbered demo panes.
+fn demo_pane_ui(ui: &mut egui::Ui, nr: usize, file_dialog: &mut FileDialog) {
+    ui.heading(format!("Dock pane {nr}"));
+    match nr {
+        0 => icons_pane(ui, file_dialog),
+        1 => plot_pane(ui),
+        _ => {
+            ui.label("Resize the splitters or drag tabs to dock tiles.");
+        }
+    }
+}
+
+/// Renders the in-app log viewer as a regular dock pane.
+fn log_pane_ui(ui: &mut egui::Ui) {
+    egui_logger::logger_ui().show(ui);
+}
+
+/// Demo pane 0: demonstrates egui-phosphor icon glyphs and the file dialog.
 fn icons_pane(ui: &mut egui::Ui, file_dialog: &mut FileDialog) {
     ui.label(format!(
         "Phosphor icons: {} {} {}",
@@ -74,7 +99,7 @@ fn icons_pane(ui: &mut egui::Ui, file_dialog: &mut FileDialog) {
     });
 }
 
-/// Pane 1: demonstrates egui-plot with a continuously sampled sine wave.
+/// Demo pane 1: demonstrates egui-plot with a continuously sampled sine wave.
 fn plot_pane(ui: &mut egui::Ui) {
     Plot::new("demo_plot")
         .height(ui.available_height() - 30.0)
@@ -86,12 +111,14 @@ fn plot_pane(ui: &mut egui::Ui) {
         });
 }
 
-/// Builds the initial dock tree: three tabs holding a horizontal split, a
-/// grid, and a single pane, all under a shared root tab tile.
+/// Builds the initial dock tree: demo tabs (horizontal split, grid, single
+/// pane) plus a dockable "Log" tab, all under a shared root tab tile.
 pub fn create_dock_tree() -> egui_tiles::Tree<DockPane> {
     let mut next_view_nr = 0;
-    let mut gen_pane = || {
-        let pane = DockPane { nr: next_view_nr };
+    let mut gen_demo = || {
+        let pane = DockPane {
+            kind: DockPaneKind::Demo(next_view_nr),
+        };
         next_view_nr += 1;
         pane
     };
@@ -100,14 +127,17 @@ pub fn create_dock_tree() -> egui_tiles::Tree<DockPane> {
 
     let mut tabs = vec![];
     tabs.push({
-        let children = (0..3).map(|_| tiles.insert_pane(gen_pane())).collect();
+        let children = (0..3).map(|_| tiles.insert_pane(gen_demo())).collect();
         tiles.insert_horizontal_tile(children)
     });
     tabs.push({
-        let cells = (0..4).map(|_| tiles.insert_pane(gen_pane())).collect();
+        let cells = (0..4).map(|_| tiles.insert_pane(gen_demo())).collect();
         tiles.insert_grid_tile(cells)
     });
-    tabs.push(tiles.insert_pane(gen_pane()));
+    tabs.push(tiles.insert_pane(gen_demo()));
+    tabs.push(tiles.insert_pane(DockPane {
+        kind: DockPaneKind::Log,
+    }));
 
     let root = tiles.insert_tab_tile(tabs);
 

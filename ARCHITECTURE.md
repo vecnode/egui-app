@@ -20,8 +20,10 @@ The stack:
 │ egui_app (binary)                                            │
 │  main.rs → app.rs (TemplateApp) → dock.rs (egui_tiles)       │
 │              │            │                                   │
+│              ├─ icon.rs (bundled app icon)                   │
 │              ├─ logging.rs (egui_logger + log)                │
 │              └─ platform.rs (Windows 11 dark theme)           │
+│  build.rs — embeds assets/icon.ico into the .exe (Windows)   │
 ├──────────────────────────────────────────────────────────────┤
 │ eframe  — windowing + event loop + renderer wiring           │
 │   ├─ egui — immediate-mode UI toolkit                        │
@@ -31,15 +33,18 @@ The stack:
 ```
 
 Crates: `eframe`, `egui_file_dialog`, `egui_phosphor`, `egui_logger`,
-`egui_plot`, `egui_tiles`, `log` (see `Cargo.toml` and the README feature
-table).
+`egui_plot`, `egui_tiles`, `log`, `image` (icon decode),
+`embed-resource` (Windows icon, build-only) — see `Cargo.toml` and the
+README feature table.
 
 ## 2. Runtime lifecycle
 
 1. **`main()`** (`src/main.rs`)
    1. Installs the global logger via `logging::init_logger()`
       (`egui_logger` → captures `log` records, `Debug` level).
-   2. Builds `eframe::NativeOptions` with a 1024×720 viewport.
+   2. Builds `eframe::NativeOptions` with a 1024×720 viewport and, when
+      `icon::load_app_icon()` succeeds, the application icon via
+      `ViewportBuilder::with_icon`.
    3. Calls `eframe::run_native(APP_TITLE, options, app_creator)`.
       The creator closure runs once, before the first frame:
       1. `install_icon_font()` adds the egui-phosphor icon glyphs to the
@@ -51,8 +56,8 @@ table).
    frame eframe calls the two `eframe::App` hooks on `TemplateApp`:
    - `logic()` — frame-independent bookkeeping (currently logs a one-shot
      startup message).
-   - `ui()` — draws the central dockable workspace and the floating
-     "Log" window, then calls `ctx.request_repaint()` implicitly as needed.
+   - `ui()` — draws the central dockable workspace (the Log pane included),
+     then calls `ctx.request_repaint()` implicitly as needed.
 3. **Shutdown** — the window closes, the loop exits, and `run_native`
    returns `Ok(())` (or an error that `main` propagates).
 
@@ -60,8 +65,9 @@ table).
 
 ### `src/main.rs` — entry point
 
-Thin by design. Owns `APP_TITLE`, the `NativeOptions`, and the one-time
-startup wiring (logger, fonts, theme). No UI logic lives here.
+Thin by design. Owns `APP_TITLE`, the `NativeOptions` (viewport + app icon),
+and the one-time startup wiring (logger, fonts, theme). No UI logic lives
+here.
 
 ### `src/app.rs` — application state
 
@@ -75,29 +81,41 @@ implementation:
 | `logged_startup: bool` | One-shot flag for the startup log message |
 
 `ui()` composes the frame: the `CentralPanel` hosts the dock tree (via
-`DockBehavior`), the file dialog is advanced and polled for results
-(`take_picked()`), and a floating `Window` renders `egui_logger::logger_ui()`.
+`DockBehavior`), and the file dialog is advanced and polled for results
+(`take_picked()`). The log viewer is not a separate window — it lives in its
+own dock pane (see below).
 
 ### `src/dock.rs` — dockable workspace (egui_tiles)
 
-- `DockPane` — a pane identified by number; the demo content is chosen by
-  `pane.nr` in `DockBehavior::pane_ui`.
+- `DockPaneKind` — `Demo(usize)` (template demos) or `Log` (in-app log
+  viewer). A pane's tab title and content are derived from its kind.
+- `DockPane` — a pane identified by its kind.
 - `DockBehavior` — implements `egui_tiles::Behavior<DockPane>`, bridging the
   dock tree with shared app state (the `FileDialog`).
 - `create_dock_tree()` — builds the initial layout:
 
   ```
   root (tab tile)
-  ├── tab "horizontal" → 3 panes in a horizontal split
-  ├── tab "grid"       → 4 panes in a grid
-  └── tab (single)     → 1 pane
+  ├── tab "horizontal" → 3 demo panes in a horizontal split
+  ├── tab "grid"       → 4 demo panes in a grid
+  ├── tab (single)     → 1 demo pane
+  └── tab "Log"        → the in-app log viewer (egui_logger)
   ```
 
   Every pane gets a "Drag to dock" button (via `egui::Sense::drag()`), so
-  panes can be torn out and re-docked at runtime.
+  panes — including the Log — can be torn out and re-docked at runtime.
 
-Pane demos: pane 0 shows egui-phosphor icon buttons + file dialog trigger;
+Demo panes: pane 0 shows egui-phosphor icon buttons + file dialog trigger;
 pane 1 shows an `egui_plot` sine wave.
+
+### `src/icon.rs` — application icon
+
+`include_bytes!` embeds `assets/icon.png` (512×512) into the binary;
+`load_app_icon()` decodes it with the `image` crate (PNG only) into
+`egui::IconData` for `ViewportBuilder::with_icon`. The same icon therefore
+drives the window title bar (small) and the taskbar/dock (large) on every
+platform, with no runtime file I/O. On failure it returns `None` and the app
+runs with the default icon.
 
 ### `src/platform.rs` — OS-specific behavior
 
@@ -116,8 +134,28 @@ stays platform-agnostic.
 ### `src/logging.rs` — logging
 
 Wraps `egui_logger::builder()`. The log records are captured into an
-in-memory buffer rendered by the "Log" window; nothing is written to disk or
-stdout by default, which keeps the template free of side effects.
+in-memory buffer rendered by the dockable "Log" pane; nothing is written to
+disk or stdout by default, which keeps the template free of side effects.
+
+### `build.rs` — Windows resource embedding
+
+On Windows targets (`CARGO_CFG_TARGET_OS == "windows"`, so cross-compiles
+stay correct) `embed-resource` compiles `assets/windows/app.rc`, which
+binds `assets/icon.ico` to the executable. Explorer and the taskbar then
+show the icon for the `.exe` itself, before any window exists. On other
+platforms the script is a no-op.
+
+### `assets/` — icons and packaging
+
+| Path | Role |
+| --- | --- |
+| `icon.png`, `icon-{32,128,256}.png` | Source PNGs; `icon.png` is embedded at build time |
+| `icon.ico` | Windows multi-size icon (`build.rs`) |
+| `icon.icns` | macOS icon (`build_app.sh --bundle`) |
+| `windows/app.rc` | Windows resource script |
+| `macos/Info.plist` | `.app` bundle metadata template |
+| `linux/egui-app.desktop` | Desktop-entry template (install steps in comments) |
+| `generate_icons.ps1` | Regenerates every icon file (System.Drawing, Windows) |
 
 ## 4. Data flow per frame
 
@@ -127,11 +165,11 @@ input (winit) → egui (immediate mode) → TemplateApp::ui()
    │          ┌───────────────────────────┘
    │          ▼
    │   CentralPanel
-   │     └─ tree.ui(&mut DockBehavior, ui)   ← dock panes render
+   │     └─ tree.ui(&mut DockBehavior, ui)   ← dock panes render,
+   │     │                                     incl. the Log pane
+   │     │                                     (egui_logger::logger_ui)
    │     └─ file_dialog.update(ui)           ← picker advances/renders
    │     └─ take_picked() → log::info!(path)
-   │   Window "Log"
-   │     └─ egui_logger::logger_ui()         ← buffered records
    │          │
    └──────────┘ egui outputs a paint list → wgpu draws → present
 ```
@@ -163,17 +201,20 @@ read/written during the frame; there are no event handlers to wire up.
 
 ## 7. Extension points
 
-- **New dock pane**: add a branch in `DockBehavior::pane_ui` (or restructure
-  `create_dock_tree`), keeping pane content in small helper functions like
-  `icons_pane`/`plot_pane`.
+- **New dock pane**: add a variant to `DockPaneKind` and a branch in
+  `pane_ui` (or restructure `create_dock_tree`), keeping pane content in
+  small helper functions like `icons_pane`/`plot_pane`.
 - **New app-wide state**: add fields to `TemplateApp`; read/write them from
   `ui()`.
 - **New platform behavior**: add `#[cfg(...)]` functions to `platform.rs`
   behind a small public API.
 - **New logging sink**: extend `logging.rs` (e.g. `env_logger` for stdout)
   without touching the app code.
+- **New icon**: replace the PNGs/ICO/ICNS in `assets/` (or edit
+  `generate_icons.ps1` and re-run it), then commit all regenerated files.
 - **Distribution**: `cargo build --release` (LTO + strip enabled in
-  `Cargo.toml`); `build_app.bat` / `build_app.sh` wrap build + run.
+  `Cargo.toml`); `build_app.bat` / `build_app.sh` wrap build + run;
+  `build_app.sh --bundle` produces a macOS `.app` with the icon.
 
 ## 8. Reproducibility
 

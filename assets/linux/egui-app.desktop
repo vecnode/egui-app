@@ -1,0 +1,21 @@
+# Desktop-entry template for Linux (see https://specifications.freedesktop.org/desktop-entry-spec/).
+#
+# To register the app with your desktop environment:
+#
+#   1. Install the icon and desktop file:
+#        mkdir -p ~/.local/share/icons/hicolor/512x512/apps ~/.local/share/applications
+#        cp assets/icon.png ~/.local/share/icons/hicolor/512x512/apps/egui-app.png
+#        cp assets/linux/egui-app.desktop ~/.local/share/applications/
+#   2. Point Exec at the installed binary (or install it on your PATH first).
+#   3. Refresh the desktop database:
+#        update-desktop-database ~/.local/share/applications
+#
+[Desktop Entry]
+Type=Application
+Name=egui-app
+GenericName=egui template application
+Comment=Cross-platform desktop application template (egui/eframe)
+Exec=egui_app
+Icon=egui-app
+Terminal=false
+Categories=Utility;Development;

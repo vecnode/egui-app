@@ -1,12 +1,13 @@
 //! `egui_app` — a cross-platform desktop application template built with
 //! [eframe](https://docs.rs/eframe) / [egui](https://github.com/emilk/egui).
 //!
-//! This binary is intentionally thin: it installs logging and fonts, applies
-//! platform theming, and hands control to [`eframe::run_native`]. All
-//! application logic lives in the sibling modules:
+//! This binary is intentionally thin: it installs logging, fonts and the
+//! application icon, applies platform theming, and hands control to
+//! [`eframe::run_native`]. All application logic lives in the sibling modules:
 //!
 //! - [`app`] — application state and the [`eframe::App`] implementation
-//! - [`dock`] — dockable workspace built on [`egui_tiles`]
+//! - [`dock`] — dockable workspace (including the Log pane) built on [`egui_tiles`]
+//! - [`icon`] — bundled application icon (window title bar + taskbar/dock)
 //! - [`logging`] — in-app logging via [`egui_logger`]
 //! - [`platform`] — OS-specific detection and theming
 
@@ -14,6 +15,7 @@
 
 mod app;
 mod dock;
+mod icon;
 mod logging;
 mod platform;
 
@@ -25,8 +27,13 @@ const APP_TITLE: &str = "egui cross-platform template";
 fn main() -> eframe::Result<()> {
     logging::init_logger().expect("global logger should be installed once at process startup");
 
+    let mut viewport = egui::ViewportBuilder::default().with_inner_size([1024.0, 720.0]);
+    if let Some(icon) = icon::load_app_icon() {
+        viewport = viewport.with_icon(icon);
+    }
+
     let options = eframe::NativeOptions {
-        viewport: egui::ViewportBuilder::default().with_inner_size([1024.0, 720.0]),
+        viewport,
         ..Default::default()
     };
 

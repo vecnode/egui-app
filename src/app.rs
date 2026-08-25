@@ -36,12 +36,14 @@ impl eframe::App for TemplateApp {
     /// Frame-independent bookkeeping, called before [`Self::ui`] each frame.
     fn logic(&mut self, _ctx: &egui::Context, _frame: &mut eframe::Frame) {
         if !self.logged_startup {
-            log::info!("egui_app started; open the Log window for captured output");
+            log::info!("egui_app started; logs appear in the dockable Log tab");
             self.logged_startup = true;
         }
     }
 
-    /// Draws the dockable workspace and the floating "Log" window.
+    /// Draws the dockable workspace. The log viewer lives in its own dock
+    /// pane (see [`crate::dock`]), so it can be dragged and docked like any
+    /// other tab.
     fn ui(&mut self, ui: &mut egui::Ui, _frame: &mut eframe::Frame) {
         egui::CentralPanel::default().show_inside(ui, |ui| {
             let mut behavior = DockBehavior {
@@ -54,11 +56,5 @@ impl eframe::App for TemplateApp {
                 log::info!("picked file: {}", path.display());
             }
         });
-
-        egui::Window::new("Log")
-            .default_size([1024.0, 360.0])
-            .show(ui.ctx(), |ui| {
-                egui_logger::logger_ui().show(ui);
-            });
     }
 }
